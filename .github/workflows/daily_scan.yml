@@ -1,0 +1,39 @@
+name: Daily HK GGT Weinstein Scanner
+
+on:
+  schedule:
+    # 周一至周五 UTC 08:45 = 香港时间 16:45（港股盘后）
+    - cron: '45 8 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scan-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Stan Weinstein HK GGT Scanner
+        run: python scanner.py
+
+      - name: Commit and push updated dashboard
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/index.html docs/ggt_tickers.csv || git add docs/index.html
+          git diff --staged --quiet || git commit -m "Update HK GGT Weinstein dashboard $(date +'%Y-%m-%d')"
+          git push
