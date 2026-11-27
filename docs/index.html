@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>全量港股通 Stan Weinstein 现代版选股看板</title>
+  <title>全量港股通 Stan Weinstein 現代版選股看板</title>
   <style>
     :root {
       --bg: #0d1117; --card: #161b22; --border: #30363d;
@@ -12,7 +12,7 @@
     }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang HK", sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
-    .container { max-width: 1360px; margin: 0 auto; }
+    .container { max-width: 1400px; margin: 0 auto; }
     header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
     h1 { margin: 0; font-size: 1.45rem; }
     .meta { color: var(--muted); font-size: 0.86rem; }
@@ -47,7 +47,7 @@
 <body>
 <div class="container">
   <header>
-    <h1>全量港股通 Stan Weinstein 现代版选股看板</h1>
+    <h1>全量港股通 Stan Weinstein 現代版選股看板</h1>
     <div class="meta" id="metaInfo"></div>
   </header>
 
@@ -55,39 +55,44 @@
 
   <div class="toolbar">
     <div class="tabs" id="tabs"></div>
-    <input class="search" id="searchInput" type="text" placeholder="搜索代码或名称 (如 0700 / 腾讯)" />
+    <input class="search" id="searchInput" type="text" placeholder="搜尋代碼、名稱或訊號 (如 島形 / 3B)" />
   </div>
 
   <div class="table-wrap">
     <table id="dataTable"></table>
   </div>
 
-  <footer>数据来源：港交所/深交所官方港股通名单 & Yahoo Finance ｜ 点击表头可排序 ｜ 配色：绿涨红跌 ｜ 仅供技术面量化复盘参考</footer>
+  <footer>資料來源：港交所/深交所官方港股通名單 & Yahoo Finance ｜ 點擊表頭可排序 ｜ 配色：綠漲紅跌 ｜ 僅供技術面量化復盤參考</footer>
 </div>
 
 <script>
-const DATA = {"updated_at": "2026-11-27 20:39 HKT", "trade_date": "2026-11-27", "source_name": "港交所披露易官方", "universe": {"total_listed": 987, "total_fetched": 848, "liquid_count": 346, "breadth_ma50": 26.6, "breadth_ma200": 20.5}, "benchmark": {"symbol": "2800.HK", "label": "盈富基金 / 恒指代理", "close": 22.84, "pct_chg": 1.96, "long_bull": false, "short_bull": false}, "stage2": [], "gap_watch": [], "stage4b": [], "risk": [{"ticker": "0290.HK", "name": "國富量子", "url": "https://www.tradingview.com/chart/?symbol=HKEX:290", "close": 2.14, "pct_chg": 5.41, "ma50": 1.63, "dist_ma50": 31.5, "vol_ratio": 3.32, "turnover_m": 35.8, "signal": "分批止盈(乖离率过高(31.5%))"}, {"ticker": "0941.HK", "name": "中國移動", "url": "https://www.tradingview.com/chart/?symbol=HKEX:941", "close": 77.75, "pct_chg": -1.08, "ma50": 79.52, "dist_ma50": -2.2, "vol_ratio": 1.99, "turnover_m": 1210.4, "signal": "50MA反抽受阻(彻底清仓)"}, {"ticker": "0293.HK", "name": "國泰航空", "url": "https://www.tradingview.com/chart/?symbol=HKEX:293", "close": 14.17, "pct_chg": 0.5, "ma50": 14.35, "dist_ma50": -1.2, "vol_ratio": 1.86, "turnover_m": 406.5, "signal": "刚有效跌破50MA(离场)"}, {"ticker": "2419.HK", "name": "德康農牧", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2419", "close": 51.3, "pct_chg": -2.93, "ma50": 56.36, "dist_ma50": -9.0, "vol_ratio": 1.59, "turnover_m": 54.8, "signal": "50MA反抽受阻(彻底清仓)"}, {"ticker": "9858.HK", "name": "優然牧業", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9858", "close": 3.68, "pct_chg": -2.9, "ma50": 3.79, "dist_ma50": -3.0, "vol_ratio": 1.54, "turnover_m": 74.1, "signal": "50MA反抽受阻(彻底清仓)"}, {"ticker": "6681.HK", "name": "腦動極光-B", "url": "https://www.tradingview.com/chart/?symbol=HKEX:6681", "close": 1.61, "pct_chg": -3.01, "ma50": 1.22, "dist_ma50": 32.3, "vol_ratio": 1.45, "turnover_m": 389.9, "signal": "分批止盈(乖离率过高(32.3%))"}, {"ticker": "1333.HK", "name": "博雷頓", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1333", "close": 20.06, "pct_chg": 0.3, "ma50": 16.03, "dist_ma50": 25.2, "vol_ratio": 1.25, "turnover_m": 86.0, "signal": "分批止盈(乖离率过高(25.2%))"}, {"ticker": "2245.HK", "name": "力勤資源", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2245", "close": 17.62, "pct_chg": 0.97, "ma50": 18.15, "dist_ma50": -2.9, "vol_ratio": 1.24, "turnover_m": 55.4, "signal": "50MA反抽受阻(彻底清仓)"}, {"ticker": "0857.HK", "name": "中國石油股份", "url": "https://www.tradingview.com/chart/?symbol=HKEX:857", "close": 9.7, "pct_chg": -0.72, "ma50": 9.96, "dist_ma50": -2.5, "vol_ratio": 1.1, "turnover_m": 1159.5, "signal": "50MA反抽受阻(彻底清仓)"}, {"ticker": "0902.HK", "name": "華能國際電力股份", "url": "https://www.tradingview.com/chart/?symbol=HKEX:902", "close": 5.83, "pct_chg": -1.19, "ma50": 5.98, "dist_ma50": -2.4, "vol_ratio": 0.92, "turnover_m": 152.0, "signal": "50MA反抽受阻(彻底清仓)"}, {"ticker": "0696.HK", "name": "中國民航信息網絡", "url": "https://www.tradingview.com/chart/?symbol=HKEX:696", "close": 9.1, "pct_chg": 1.62, "ma50": 9.12, "dist_ma50": -0.2, "vol_ratio": 0.49, "turnover_m": 33.3, "signal": "刚有效跌破50MA(离场)"}, {"ticker": "2583.HK", "name": "西普尼", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2583", "close": 74.25, "pct_chg": 3.34, "ma50": 51.79, "dist_ma50": 43.4, "vol_ratio": 0.44, "turnover_m": 54.8, "signal": "分批止盈(乖离率过高(43.4%))"}]};
+const DATA = {"updated_at": "2026-11-27 20:53 HKT", "trade_date": "2026-11-27", "source_name": "港交所披露易官方", "universe": {"total_listed": 987, "total_fetched": 848, "liquid_count": 346, "breadth_ma50": 26.6, "breadth_ma200": 20.5}, "benchmark": {"symbol": "2800.HK", "label": "盈富基金 / 恒指代理", "close": 22.84, "pct_chg": 1.96, "long_bull": false, "short_bull": false}, "stage2": [], "gap_watch": [], "stage4b": [], "stage3": [{"ticker": "0941.HK", "name": "中國移動", "url": "https://www.tradingview.com/chart/?symbol=HKEX:941", "close": 77.75, "pct_chg": -1.08, "stage_tag": "Stage 3B (高危)", "severity": 3, "cross_50": 4, "neckline": 77.0, "dist_neckline": 1.0, "vol_ratio": 1.99, "turnover_m": 1210.4, "signals": "50MA反覆穿插(4次) | Stage 3B(反抽50MA受阻)"}, {"ticker": "9858.HK", "name": "優然牧業", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9858", "close": 3.68, "pct_chg": -2.9, "stage_tag": "Stage 3B (高危)", "severity": 3, "cross_50": 4, "neckline": 3.16, "dist_neckline": 16.5, "vol_ratio": 1.54, "turnover_m": 74.1, "signals": "50MA反覆穿插(4次) | Stage 3B(反抽50MA受阻)"}, {"ticker": "2245.HK", "name": "力勤資源", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2245", "close": 17.62, "pct_chg": 0.97, "stage_tag": "Stage 3B (高危)", "severity": 3, "cross_50": 7, "neckline": 14.11, "dist_neckline": 24.9, "vol_ratio": 1.24, "turnover_m": 55.4, "signals": "Stage 3B(反抽50MA受阻)"}, {"ticker": "0857.HK", "name": "中國石油股份", "url": "https://www.tradingview.com/chart/?symbol=HKEX:857", "close": 9.7, "pct_chg": -0.72, "stage_tag": "Stage 3B (高危)", "severity": 3, "cross_50": 6, "neckline": 9.34, "dist_neckline": 3.9, "vol_ratio": 1.1, "turnover_m": 1159.5, "signals": "50MA反覆穿插(6次) | Stage 3B(反抽50MA受阻)"}, {"ticker": "0998.HK", "name": "中信銀行", "url": "https://www.tradingview.com/chart/?symbol=HKEX:998", "close": 7.97, "pct_chg": -1.24, "stage_tag": "Stage 3B (高危)", "severity": 3, "cross_50": 5, "neckline": 7.71, "dist_neckline": 3.5, "vol_ratio": 1.0, "turnover_m": 211.9, "signals": "50MA反覆穿插(5次) | Stage 3B(反抽50MA受阻)"}, {"ticker": "0066.HK", "name": "港鐵公司", "url": "https://www.tradingview.com/chart/?symbol=HKEX:66", "close": 32.22, "pct_chg": -0.25, "stage_tag": "Stage 3B (高危)", "severity": 3, "cross_50": 4, "neckline": 30.5, "dist_neckline": 5.6, "vol_ratio": 0.48, "turnover_m": 153.7, "signals": "50MA反覆穿插(4次) | Stage 3B(反抽50MA受阻)"}, {"ticker": "0267.HK", "name": "中信股份", "url": "https://www.tradingview.com/chart/?symbol=HKEX:267", "close": 11.97, "pct_chg": 0.76, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 9, "neckline": 11.69, "dist_neckline": 2.4, "vol_ratio": 1.4, "turnover_m": 177.4, "signals": "50MA反覆穿插(9次) | Stage 3B預警(派發末期)"}, {"ticker": "9911.HK", "name": "赤子城科技", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9911", "close": 8.65, "pct_chg": 9.08, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 7, "neckline": 7.68, "dist_neckline": 12.7, "vol_ratio": 1.38, "turnover_m": 56.2, "signals": "Stage 3B預警(派發末期)"}, {"ticker": "2268.HK", "name": "藥明合聯", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2268", "close": 60.05, "pct_chg": 6.0, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 3, "neckline": 55.05, "dist_neckline": 9.1, "vol_ratio": 1.27, "turnover_m": 376.1, "signals": "Stage 3B預警(派發末期)"}, {"ticker": "0001.HK", "name": "長和", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1", "close": 64.2, "pct_chg": 0.39, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 2, "neckline": 63.3, "dist_neckline": 1.4, "vol_ratio": 1.12, "turnover_m": 450.5, "signals": "Stage 3B預警(派發末期)"}, {"ticker": "2162.HK", "name": "康諾亞-B", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2162", "close": 67.5, "pct_chg": 6.38, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 7, "neckline": 62.45, "dist_neckline": 8.1, "vol_ratio": 1.06, "turnover_m": 136.7, "signals": "Stage 3B預警(派發末期)"}, {"ticker": "1070.HK", "name": "TCL電子", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1070", "close": 14.38, "pct_chg": 1.27, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 5, "neckline": 13.92, "dist_neckline": 3.3, "vol_ratio": 1.05, "turnover_m": 151.5, "signals": "50MA反覆穿插(5次) | Stage 3B預警(派發末期)"}, {"ticker": "9688.HK", "name": "再鼎醫藥", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9688", "close": 18.31, "pct_chg": 7.9, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 3, "neckline": 16.28, "dist_neckline": 12.5, "vol_ratio": 1.04, "turnover_m": 94.9, "signals": "Stage 3B預警(派發末期)"}, {"ticker": "2359.HK", "name": "藥明康德", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2359", "close": 195.7, "pct_chg": 3.99, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 7, "neckline": 172.4, "dist_neckline": 13.5, "vol_ratio": 0.93, "turnover_m": 1274.1, "signals": "50MA反覆穿插(7次) | Stage 3B預警(派發末期)"}, {"ticker": "2388.HK", "name": "中銀香港", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2388", "close": 45.6, "pct_chg": -0.18, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 8, "neckline": 45.1, "dist_neckline": 1.1, "vol_ratio": 0.85, "turnover_m": 767.9, "signals": "50MA反覆穿插(8次) | Stage 3B預警(派發末期)"}, {"ticker": "0386.HK", "name": "中國石油化工股份", "url": "https://www.tradingview.com/chart/?symbol=HKEX:386", "close": 4.48, "pct_chg": 0.56, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 6, "neckline": 4.32, "dist_neckline": 3.7, "vol_ratio": 0.82, "turnover_m": 581.4, "signals": "50MA反覆穿插(6次) | Stage 3B預警(派發末期)"}, {"ticker": "2888.HK", "name": "渣打集團", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2888", "close": 199.0, "pct_chg": 1.79, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 4, "neckline": 192.4, "dist_neckline": 3.4, "vol_ratio": 0.79, "turnover_m": 241.0, "signals": "50MA反覆穿插(4次) | Stage 3B預警(派發末期)"}, {"ticker": "0270.HK", "name": "粵海投資", "url": "https://www.tradingview.com/chart/?symbol=HKEX:270", "close": 8.05, "pct_chg": -0.62, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 3, "neckline": 7.77, "dist_neckline": 3.5, "vol_ratio": 0.74, "turnover_m": 84.1, "signals": "Stage 3B預警(派發末期)"}, {"ticker": "1548.HK", "name": "金斯瑞生物科技", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1548", "close": 29.72, "pct_chg": 6.52, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 3, "neckline": 26.34, "dist_neckline": 12.8, "vol_ratio": 0.73, "turnover_m": 1174.7, "signals": "Stage 3B預警(派發末期)"}, {"ticker": "0325.HK", "name": "布魯可", "url": "https://www.tradingview.com/chart/?symbol=HKEX:325", "close": 58.95, "pct_chg": 4.61, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 4, "neckline": 48.0, "dist_neckline": 22.8, "vol_ratio": 0.61, "turnover_m": 88.6, "signals": "Stage 3B預警(派發末期)"}, {"ticker": "3618.HK", "name": "重慶農村商業銀行", "url": "https://www.tradingview.com/chart/?symbol=HKEX:3618", "close": 6.34, "pct_chg": -2.16, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 6, "neckline": 6.16, "dist_neckline": 3.0, "vol_ratio": 0.53, "turnover_m": 70.1, "signals": "50MA反覆穿插(6次) | Stage 3B預警(派發末期)"}, {"ticker": "1308.HK", "name": "海豐國際", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1308", "close": 41.2, "pct_chg": 2.39, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 3, "neckline": 39.78, "dist_neckline": 3.6, "vol_ratio": 0.39, "turnover_m": 352.1, "signals": "Stage 3B預警(派發末期)"}, {"ticker": "0023.HK", "name": "東亞銀行", "url": "https://www.tradingview.com/chart/?symbol=HKEX:23", "close": 16.14, "pct_chg": -1.04, "stage_tag": "Stage 3B (高危)", "severity": 2, "cross_50": 5, "neckline": 16.02, "dist_neckline": 0.7, "vol_ratio": 0.38, "turnover_m": 36.9, "signals": "50MA反覆穿插(5次) | Stage 3B預警(派發末期)"}, {"ticker": "0013.HK", "name": "和黃醫藥", "url": "https://www.tradingview.com/chart/?symbol=HKEX:13", "close": 22.68, "pct_chg": 10.85, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 4, "neckline": 20.22, "dist_neckline": 12.2, "vol_ratio": 2.64, "turnover_m": 115.0, "signals": "50MA反覆穿插(4次)"}, {"ticker": "1177.HK", "name": "中國生物製藥", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1177", "close": 5.68, "pct_chg": 6.26, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 6, "neckline": 4.71, "dist_neckline": 20.7, "vol_ratio": 1.77, "turnover_m": 455.7, "signals": "50MA反覆穿插(6次)"}, {"ticker": "1398.HK", "name": "工商銀行", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1398", "close": 7.62, "pct_chg": -2.74, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 4, "neckline": 7.16, "dist_neckline": 6.4, "vol_ratio": 1.6, "turnover_m": 1728.2, "signals": "50MA反覆穿插(4次)"}, {"ticker": "3759.HK", "name": "康龍化成", "url": "https://www.tradingview.com/chart/?symbol=HKEX:3759", "close": 29.48, "pct_chg": 9.59, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 4, "neckline": 24.06, "dist_neckline": 22.5, "vol_ratio": 1.53, "turnover_m": 170.8, "signals": "50MA反覆穿插(4次)"}, {"ticker": "9633.HK", "name": "農夫山泉", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9633", "close": 46.08, "pct_chg": -2.25, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 5, "neckline": 37.9, "dist_neckline": 21.6, "vol_ratio": 1.51, "turnover_m": 351.2, "signals": "50MA反覆穿插(5次)"}, {"ticker": "0322.HK", "name": "康師傅控股", "url": "https://www.tradingview.com/chart/?symbol=HKEX:322", "close": 12.94, "pct_chg": -4.5, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 7, "neckline": 11.25, "dist_neckline": 15.0, "vol_ratio": 1.43, "turnover_m": 178.8, "signals": "50MA反覆穿插(7次)"}, {"ticker": "0939.HK", "name": "建設銀行", "url": "https://www.tradingview.com/chart/?symbol=HKEX:939", "close": 10.13, "pct_chg": -2.88, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 0, "neckline": 9.45, "dist_neckline": 7.1, "vol_ratio": 1.43, "turnover_m": 2627.0, "signals": "高位劣質收盤(2次)"}, {"ticker": "2382.HK", "name": "舜宇光學科技", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2382", "close": 64.75, "pct_chg": 6.41, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 13, "neckline": 56.6, "dist_neckline": 14.4, "vol_ratio": 1.38, "turnover_m": 477.5, "signals": "50MA反覆穿插(13次)"}, {"ticker": "2319.HK", "name": "蒙牛乳業", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2319", "close": 21.36, "pct_chg": -2.29, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 7, "neckline": 16.85, "dist_neckline": 26.8, "vol_ratio": 1.37, "turnover_m": 641.3, "signals": "高位劣質收盤(2次)"}, {"ticker": "1766.HK", "name": "中國中車", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1766", "close": 5.54, "pct_chg": 1.28, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 4, "neckline": 5.05, "dist_neckline": 9.7, "vol_ratio": 1.33, "turnover_m": 120.5, "signals": "50MA反覆穿插(4次)"}, {"ticker": "3692.HK", "name": "翰森製藥", "url": "https://www.tradingview.com/chart/?symbol=HKEX:3692", "close": 33.48, "pct_chg": 5.82, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 6, "neckline": 30.5, "dist_neckline": 9.8, "vol_ratio": 1.33, "turnover_m": 327.2, "signals": "50MA反覆穿插(6次)"}, {"ticker": "1997.HK", "name": "九龍倉置業", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1997", "close": 32.64, "pct_chg": -1.45, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 9, "neckline": 29.22, "dist_neckline": 11.7, "vol_ratio": 1.14, "turnover_m": 99.5, "signals": "高位劣質收盤(2次) | 50MA反覆穿插(9次)"}, {"ticker": "1929.HK", "name": "周大福", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1929", "close": 11.65, "pct_chg": 2.55, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 5, "neckline": 10.27, "dist_neckline": 13.4, "vol_ratio": 1.13, "turnover_m": 172.2, "signals": "50MA反覆穿插(5次)"}, {"ticker": "0836.HK", "name": "華潤電力", "url": "https://www.tradingview.com/chart/?symbol=HKEX:836", "close": 19.66, "pct_chg": 0.77, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 4, "neckline": 18.52, "dist_neckline": 6.2, "vol_ratio": 1.08, "turnover_m": 230.8, "signals": "50MA反覆穿插(4次)"}, {"ticker": "1972.HK", "name": "太古地產", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1972", "close": 25.1, "pct_chg": -1.03, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 4, "neckline": 22.8, "dist_neckline": 10.1, "vol_ratio": 1.08, "turnover_m": 89.6, "signals": "50MA反覆穿插(4次)"}, {"ticker": "0392.HK", "name": "北京控股", "url": "https://www.tradingview.com/chart/?symbol=HKEX:392", "close": 31.02, "pct_chg": 0.52, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 5, "neckline": 28.84, "dist_neckline": 7.6, "vol_ratio": 1.01, "turnover_m": 39.6, "signals": "50MA反覆穿插(5次)"}, {"ticker": "1919.HK", "name": "中遠海控", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1919", "close": 17.15, "pct_chg": 1.3, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 6, "neckline": 15.98, "dist_neckline": 7.3, "vol_ratio": 1.01, "turnover_m": 369.4, "signals": "50MA反覆穿插(6次)"}, {"ticker": "0257.HK", "name": "光大環境", "url": "https://www.tradingview.com/chart/?symbol=HKEX:257", "close": 5.24, "pct_chg": -0.57, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 5, "neckline": 4.44, "dist_neckline": 17.9, "vol_ratio": 0.83, "turnover_m": 62.7, "signals": "50MA反覆穿插(5次)"}, {"ticker": "0003.HK", "name": "香港中華煤氣", "url": "https://www.tradingview.com/chart/?symbol=HKEX:3", "close": 7.24, "pct_chg": -1.56, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 4, "neckline": 6.99, "dist_neckline": 3.7, "vol_ratio": 0.8, "turnover_m": 133.0, "signals": "50MA反覆穿插(4次)"}, {"ticker": "2423.HK", "name": "貝殼-W", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2423", "close": 48.32, "pct_chg": 2.72, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 5, "neckline": 42.46, "dist_neckline": 13.8, "vol_ratio": 0.8, "turnover_m": 512.4, "signals": "50MA反覆穿插(5次)"}, {"ticker": "6655.HK", "name": "華新建材", "url": "https://www.tradingview.com/chart/?symbol=HKEX:6655", "close": 16.95, "pct_chg": 1.62, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 7, "neckline": 13.92, "dist_neckline": 21.8, "vol_ratio": 0.77, "turnover_m": 46.2, "signals": "50MA反覆穿插(7次)"}, {"ticker": "0006.HK", "name": "電能實業", "url": "https://www.tradingview.com/chart/?symbol=HKEX:6", "close": 64.8, "pct_chg": -2.78, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 4, "neckline": 58.7, "dist_neckline": 10.4, "vol_ratio": 0.76, "turnover_m": 182.6, "signals": "50MA反覆穿插(4次)"}, {"ticker": "2020.HK", "name": "安踏體育", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2020", "close": 82.4, "pct_chg": 0.3, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 6, "neckline": 70.3, "dist_neckline": 17.2, "vol_ratio": 0.76, "turnover_m": 693.9, "signals": "50MA反覆穿插(6次)"}, {"ticker": "0002.HK", "name": "中電控股", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2", "close": 79.1, "pct_chg": -1.37, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 7, "neckline": 74.6, "dist_neckline": 6.0, "vol_ratio": 0.74, "turnover_m": 296.1, "signals": "50MA反覆穿插(7次)"}, {"ticker": "9987.HK", "name": "百勝中國", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9987", "close": 406.6, "pct_chg": -0.49, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 3, "neckline": 310.6, "dist_neckline": 30.9, "vol_ratio": 0.73, "turnover_m": 401.5, "signals": "高位劣質收盤(2次)"}, {"ticker": "0027.HK", "name": "銀河娛樂", "url": "https://www.tradingview.com/chart/?symbol=HKEX:27", "close": 33.22, "pct_chg": 1.16, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 5, "neckline": 29.42, "dist_neckline": 12.9, "vol_ratio": 0.71, "turnover_m": 343.3, "signals": "50MA反覆穿插(5次)"}, {"ticker": "0019.HK", "name": "太古股份公司Ａ", "url": "https://www.tradingview.com/chart/?symbol=HKEX:19", "close": 106.0, "pct_chg": -1.85, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 6, "neckline": 99.15, "dist_neckline": 6.9, "vol_ratio": 0.63, "turnover_m": 113.1, "signals": "高位劣質收盤(2次) | 50MA反覆穿插(6次)"}, {"ticker": "0144.HK", "name": "招商局港口", "url": "https://www.tradingview.com/chart/?symbol=HKEX:144", "close": 17.16, "pct_chg": -0.41, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 4, "neckline": 15.89, "dist_neckline": 8.0, "vol_ratio": 0.62, "turnover_m": 67.9, "signals": "50MA反覆穿插(4次)"}, {"ticker": "0316.HK", "name": "東方海外國際", "url": "https://www.tradingview.com/chart/?symbol=HKEX:316", "close": 152.0, "pct_chg": 0.8, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 7, "neckline": 141.6, "dist_neckline": 7.3, "vol_ratio": 0.53, "turnover_m": 117.1, "signals": "50MA反覆穿插(7次)"}, {"ticker": "0551.HK", "name": "裕元集團", "url": "https://www.tradingview.com/chart/?symbol=HKEX:551", "close": 13.38, "pct_chg": 0.98, "stage_tag": "Stage 3A (警戒)", "severity": 1, "cross_50": 5, "neckline": 11.96, "dist_neckline": 11.9, "vol_ratio": 0.43, "turnover_m": 42.3, "signals": "50MA反覆穿插(5次)"}], "risk": [{"ticker": "0290.HK", "name": "國富量子", "url": "https://www.tradingview.com/chart/?symbol=HKEX:290", "close": 2.14, "pct_chg": 5.41, "ma50": 1.63, "dist_ma50": 31.5, "vol_ratio": 3.32, "turnover_m": 35.8, "signal": "分批止盈(乖離率過高(31.5%))"}, {"ticker": "0941.HK", "name": "中國移動", "url": "https://www.tradingview.com/chart/?symbol=HKEX:941", "close": 77.75, "pct_chg": -1.08, "ma50": 79.52, "dist_ma50": -2.2, "vol_ratio": 1.99, "turnover_m": 1210.4, "signal": "50MA反抽受阻(徹底清倉)"}, {"ticker": "0293.HK", "name": "國泰航空", "url": "https://www.tradingview.com/chart/?symbol=HKEX:293", "close": 14.17, "pct_chg": 0.5, "ma50": 14.35, "dist_ma50": -1.2, "vol_ratio": 1.86, "turnover_m": 406.5, "signal": "剛有效跌破50MA(離場)"}, {"ticker": "2419.HK", "name": "德康農牧", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2419", "close": 51.3, "pct_chg": -2.93, "ma50": 56.36, "dist_ma50": -9.0, "vol_ratio": 1.59, "turnover_m": 54.8, "signal": "50MA反抽受阻(徹底清倉)"}, {"ticker": "9858.HK", "name": "優然牧業", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9858", "close": 3.68, "pct_chg": -2.9, "ma50": 3.79, "dist_ma50": -3.0, "vol_ratio": 1.54, "turnover_m": 74.1, "signal": "50MA反抽受阻(徹底清倉)"}, {"ticker": "6681.HK", "name": "腦動極光-B", "url": "https://www.tradingview.com/chart/?symbol=HKEX:6681", "close": 1.61, "pct_chg": -3.01, "ma50": 1.22, "dist_ma50": 32.3, "vol_ratio": 1.45, "turnover_m": 389.9, "signal": "分批止盈(乖離率過高(32.3%))"}, {"ticker": "1333.HK", "name": "博雷頓", "url": "https://www.tradingview.com/chart/?symbol=HKEX:1333", "close": 20.06, "pct_chg": 0.3, "ma50": 16.03, "dist_ma50": 25.2, "vol_ratio": 1.25, "turnover_m": 86.0, "signal": "分批止盈(乖離率過高(25.2%))"}, {"ticker": "2245.HK", "name": "力勤資源", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2245", "close": 17.62, "pct_chg": 0.97, "ma50": 18.15, "dist_ma50": -2.9, "vol_ratio": 1.24, "turnover_m": 55.4, "signal": "50MA反抽受阻(徹底清倉)"}, {"ticker": "0857.HK", "name": "中國石油股份", "url": "https://www.tradingview.com/chart/?symbol=HKEX:857", "close": 9.7, "pct_chg": -0.72, "ma50": 9.96, "dist_ma50": -2.5, "vol_ratio": 1.1, "turnover_m": 1159.5, "signal": "50MA反抽受阻(徹底清倉)"}, {"ticker": "0902.HK", "name": "華能國際電力股份", "url": "https://www.tradingview.com/chart/?symbol=HKEX:902", "close": 5.83, "pct_chg": -1.19, "ma50": 5.98, "dist_ma50": -2.4, "vol_ratio": 0.92, "turnover_m": 152.0, "signal": "50MA反抽受阻(徹底清倉)"}, {"ticker": "0696.HK", "name": "中國民航信息網絡", "url": "https://www.tradingview.com/chart/?symbol=HKEX:696", "close": 9.1, "pct_chg": 1.62, "ma50": 9.12, "dist_ma50": -0.2, "vol_ratio": 0.49, "turnover_m": 33.3, "signal": "剛有效跌破50MA(離場)"}, {"ticker": "2583.HK", "name": "西普尼", "url": "https://www.tradingview.com/chart/?symbol=HKEX:2583", "close": 74.25, "pct_chg": 3.34, "ma50": 51.79, "dist_ma50": 43.4, "vol_ratio": 0.44, "turnover_m": 54.8, "signal": "分批止盈(乖離率過高(43.4%))"}]};
 
 const TABS = [
   { key: "stage2", label: "Stage 2 突破", cols: [
-    ["ticker", "代码 (TV图表)"], ["name", "名称"], ["close", "收盘价"], ["pct_chg", "涨跌幅%"],
-    ["type", "突破类型"], ["vol_ratio", "量比(50MA)"], ["dist_ma50", "距50MA%"],
-    ["mrs", "MRS强度"], ["stoch_k", "StochK"], ["turnover_m", "20日均额(M)"], ["room", "上方空间"]
+    ["ticker", "代碼 (TV圖表)"], ["name", "名稱"], ["close", "收盤價"], ["pct_chg", "漲跌幅%"],
+    ["type", "突破類型"], ["vol_ratio", "量比(50MA)"], ["dist_ma50", "距50MA%"],
+    ["mrs", "MRS強度"], ["stoch_k", "StochK"], ["turnover_m", "20日均額(M)"], ["room", "上方空間"]
   ]},
-  { key: "gap_watch", label: "缺口回调观察", cols: [
-    ["ticker", "代码 (TV图表)"], ["name", "名称"], ["close", "收盘价"], ["pct_chg", "涨跌幅%"],
-    ["gap_date", "跳空日期"], ["gap_pct", "跳空幅度%"], ["gap_zone", "未补缺口区间"],
-    ["mrs", "MRS强度"], ["turnover_m", "20日均额(M)"], ["status", "追踪状态"]
+  { key: "gap_watch", label: "缺口回調觀察", cols: [
+    ["ticker", "代碼 (TV圖表)"], ["name", "名稱"], ["close", "收盤價"], ["pct_chg", "漲跌幅%"],
+    ["gap_date", "跳空日期"], ["gap_pct", "跳空幅度%"], ["gap_zone", "未補缺口區間"],
+    ["mrs", "MRS強度"], ["turnover_m", "20日均額(M)"], ["status", "追蹤狀態"]
   ]},
-  { key: "stage4b", label: "4B- 底部反转", cols: [
-    ["ticker", "代码 (TV图表)"], ["name", "名称"], ["close", "收盘价"], ["pct_chg", "涨跌幅%"],
-    ["room_200", "距200MA空间%"], ["dd_52w", "52周回撤%"], ["vol_ratio", "量比(50MA)"],
-    ["stop_ref", "参考止损"], ["target_ref", "近200MA目标"], ["turnover_m", "20日均额(M)"]
+  { key: "stage4b", label: "4B- 底部反轉", cols: [
+    ["ticker", "代碼 (TV圖表)"], ["name", "名稱"], ["close", "收盤價"], ["pct_chg", "漲跌幅%"],
+    ["room_200", "距200MA空間%"], ["dd_52w", "52週回撤%"], ["vol_ratio", "量比(50MA)"],
+    ["stop_ref", "參考止損"], ["target_ref", "近200MA目標"], ["turnover_m", "20日均額(M)"]
   ]},
-  { key: "risk", label: "50MA 风控 / 止盈", cols: [
-    ["ticker", "代码 (TV图表)"], ["name", "名称"], ["close", "收盘价"], ["pct_chg", "涨跌幅%"],
-    ["ma50", "50日均线"], ["dist_ma50", "距50MA%"], ["vol_ratio", "量比(50MA)"],
-    ["turnover_m", "20日均额(M)"], ["signal", "风控信号"]
+  { key: "stage3", label: "Stage 3 見頂派發", cols: [
+    ["ticker", "代碼 (TV圖表)"], ["name", "名稱"], ["close", "收盤價"], ["pct_chg", "漲跌幅%"],
+    ["stage_tag", "階段判定"], ["signals", "見頂 / 派發訊號"], ["cross_50", "50MA穿插(40日)"],
+    ["neckline", "頸線支撐參考"], ["dist_neckline", "距頸線%"], ["vol_ratio", "量比(50MA)"], ["turnover_m", "20日均額(M)"]
+  ]},
+  { key: "risk", label: "50MA 風控 / 止盈", cols: [
+    ["ticker", "代碼 (TV圖表)"], ["name", "名稱"], ["close", "收盤價"], ["pct_chg", "漲跌幅%"],
+    ["ma50", "50日均線"], ["dist_ma50", "距50MA%"], ["vol_ratio", "量比(50MA)"],
+    ["turnover_m", "20日均額(M)"], ["signal", "風控訊號"]
   ]}
 ];
 
@@ -103,10 +108,11 @@ function fmtPct(v) {
 function renderHeader() {
   const b = DATA.benchmark, u = DATA.universe;
   document.getElementById("metaInfo").innerText =
-    `行情日期：${DATA.trade_date} ｜ 更新：${DATA.updated_at} ｜ 名单源：${DATA.source_name}（达标流动股 ${u.liquid_count} / 有效数据 ${u.total_fetched} / 总名单 ${u.total_listed}）`;
+    `行情日期：${DATA.trade_date} ｜ 更新：${DATA.updated_at} ｜ 名單源：${DATA.source_name}（達標流動股 ${u.liquid_count} / 有效資料 ${u.total_fetched} / 總名單 ${u.total_listed}）`;
 
-  const longTag = b.long_bull ? `<span class="badge badge-up">长牛 (200MA上行)</span>` : `<span class="badge badge-down">防守 (200MA偏弱)</span>`;
-  const shortTag = b.short_bull ? `<span class="badge badge-up">短多 (站上50MA)</span>` : `<span class="badge badge-warn">短线回调 (破50MA)</span>`;
+  const longTag = b.long_bull ? `<span class="badge badge-up">長牛 (200MA上行)</span>` : `<span class="badge badge-down">防守 (200MA偏弱)</span>`;
+  const shortTag = b.short_bull ? `<span class="badge badge-up">短多 (站上50MA)</span>` : `<span class="badge badge-warn">短線回調 (破50MA)</span>`;
+  const s3bCount = DATA.stage3.filter(x => x.stage_tag.includes("3B")).length;
 
   document.getElementById("kpiGrid").innerHTML = `
     <div class="card">
@@ -115,19 +121,19 @@ function renderHeader() {
       <div class="card-sub">${longTag} ${shortTag}</div>
     </div>
     <div class="card">
-      <div class="card-label">全量港股通市场广度</div>
+      <div class="card-label">全量港股通市場廣度</div>
       <div class="card-val ${u.breadth_ma50 >= 50 ? 'up' : 'down'}">${u.breadth_ma50}%</div>
-      <div class="card-sub">站上 50MA 占比 ｜ 站上 200MA：${u.breadth_ma200}%</div>
+      <div class="card-sub">站上 50MA 佔比 ｜ 站上 200MA：${u.breadth_ma200}%</div>
     </div>
     <div class="card">
-      <div class="card-label">多头机会命中</div>
-      <div class="card-val up">${DATA.stage2.length + DATA.gap_watch.length} 只</div>
-      <div class="card-sub">Stage 2 突破 ${DATA.stage2.length} ｜ 缺口观察 ${DATA.gap_watch.length}</div>
+      <div class="card-label">多頭與超跌機會</div>
+      <div class="card-val up">${DATA.stage2.length + DATA.gap_watch.length} <span style="font-size:0.95rem" class="warn">/ 4B- ${DATA.stage4b.length}</span></div>
+      <div class="card-sub">Stage 2 突破 ${DATA.stage2.length} ｜ 缺口觀察 ${DATA.gap_watch.length}</div>
     </div>
     <div class="card">
-      <div class="card-label">超跌博弈 / 新鲜风控警报</div>
-      <div class="card-val warn">${DATA.stage4b.length} / <span class="down">${DATA.risk.length}</span></div>
-      <div class="card-sub">4B- 反转 ${DATA.stage4b.length} ｜ 50MA/止盈警报 ${DATA.risk.length}</div>
+      <div class="card-label">見頂派發 / 50MA 風控</div>
+      <div class="card-val down">${DATA.stage3.length} <span style="font-size:0.95rem" class="warn">/ 風控 ${DATA.risk.length}</span></div>
+      <div class="card-sub">Stage 3B 高危 ${s3bCount} ｜ 3A 警戒 ${DATA.stage3.length - s3bCount}</div>
     </div>
   `;
 }
@@ -157,7 +163,12 @@ function renderTable() {
   const tab = TABS.find(t => t.key === activeKey);
   const q = document.getElementById("searchInput").value.trim().toLowerCase();
   let rows = DATA[activeKey].filter(r =>
-    !q || r.ticker.toLowerCase().includes(q) || (r.name && r.name.toLowerCase().includes(q))
+    !q
+    || r.ticker.toLowerCase().includes(q)
+    || (r.name && r.name.toLowerCase().includes(q))
+    || (r.signals && r.signals.toLowerCase().includes(q))
+    || (r.signal && r.signal.toLowerCase().includes(q))
+    || (r.stage_tag && r.stage_tag.toLowerCase().includes(q))
   );
 
   if (sortState.col) {
@@ -176,17 +187,19 @@ function renderTable() {
 
   if (!rows.length) {
     document.getElementById("dataTable").innerHTML =
-      thead + `<tbody><tr><td colspan="${tab.cols.length}" class="empty">当日暂无符合条件的标的</td></tr></tbody>`;
+      thead + `<tbody><tr><td colspan="${tab.cols.length}" class="empty">當日暫無符合條件的標的</td></tr></tbody>`;
     return;
   }
 
   const tbody = rows.map(r => `<tr>${tab.cols.map(([k]) => {
     const val = r[k];
     if (k === "ticker") return `<td><a class="ticker-link" href="${r.url}" target="_blank" rel="noopener">${val}</a></td>`;
-    if (k === "pct_chg" || k === "dist_ma50") return `<td>${fmtPct(val)}</td>`;
+    if (k === "pct_chg" || k === "dist_ma50" || k === "dist_neckline") return `<td>${fmtPct(val)}</td>`;
     if (k === "mrs") return `<td class="${val >= 0 ? 'up' : 'down'}">${val}</td>`;
     if (k === "type" || k === "status") return `<td><span class="badge badge-up">${val}</span></td>`;
-    if (k === "signal") return `<td><span class="badge ${val.includes('清仓') || val.includes('离场') ? 'badge-down' : 'badge-warn'}">${val}</span></td>`;
+    if (k === "stage_tag") return `<td><span class="badge ${val.includes('3B') ? 'badge-down' : 'badge-warn'}">${val}</span></td>`;
+    if (k === "signals") return `<td><span class="badge ${val.includes('島形') || val.includes('3B') ? 'badge-down' : 'badge-warn'}">${val}</span></td>`;
+    if (k === "signal") return `<td><span class="badge ${val.includes('清倉') || val.includes('離場') ? 'badge-down' : 'badge-warn'}">${val}</span></td>`;
     return `<td>${val}</td>`;
   }).join("")}</tr>`).join("");
 
