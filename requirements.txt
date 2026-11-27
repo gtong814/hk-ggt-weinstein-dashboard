@@ -1,0 +1,4 @@
+yfinance>=0.2.50
+pandas>=2.2.0
+numpy>=1.26.0
+akshare>=1.14.0
