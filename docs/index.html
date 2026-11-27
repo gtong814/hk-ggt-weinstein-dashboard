@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>港股通 Stan Weinstein 现代版选股看板</title>
+  <style>
+    :root {
+      --bg: #0d1117; --card: #161b22; --border: #30363d;
+      --text: #e6edf3; --muted: #8b949e;
+      --up: #22c55e; --down: #ef4444; --warn: #f59e0b; --accent: #38bdf8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang HK", sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+    .container { max-width: 1320px; margin: 0 auto; }
+    header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+    h1 { margin: 0; font-size: 1.45rem; }
+    .meta { color: var(--muted); font-size: 0.88rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .card-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; }
+    .card-val { font-size: 1.35rem; font-weight: 700; }
+    .card-sub { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+    .up { color: var(--up); } .down { color: var(--down); } .warn { color: var(--warn); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.76rem; font-weight: 600; }
+    .badge-up { background: rgba(34,197,94,0.16); color: var(--up); }
+    .badge-down { background: rgba(239,68,68,0.16); color: var(--down); }
+    .badge-warn { background: rgba(245,158,11,0.16); color: var(--warn); }
+    .toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tab-btn { background: var(--card); color: var(--muted); border: 1px solid var(--border); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: 0.15s; }
+    .tab-btn:hover { color: var(--text); border-color: var(--accent); }
+    .tab-btn.active { background: #1f2937; color: var(--text); border-color: var(--accent); }
+    .search { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; width: 240px; font-size: 0.9rem; }
+    .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { color: var(--muted); font-weight: 600; background: #121720; }
+    tr:hover td { background: rgba(56,189,248,0.06); }
+    a.ticker-link { color: var(--accent); text-decoration: none; font-weight: 700; }
+    a.ticker-link:hover { text-decoration: underline; }
+    .empty { text-align: center; padding: 36px; color: var(--muted); }
+    footer { margin-top: 22px; text-align: center; color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>港股通 Stan Weinstein 现代版选股看板</h1>
+    <div class="meta" id="metaInfo"></div>
+  </header>
+
+  <section class="grid" id="kpiGrid"></section>
+
+  <div class="toolbar">
+    <div class="tabs" id="tabs"></div>
+    <input class="search" id="searchInput" type="text" placeholder="搜索代码或名称 (如 0700 / 腾讯)" />
+  </div>
+
+  <div class="table-wrap">
+    <table id="dataTable"></table>
+  </div>
+
+  <footer>数据来源：Yahoo Finance & 东方财富港股通列表 ｜ 配色：绿涨红跌 ｜ 仅供技术面量化复盘参考，不构成投资建议</footer>
+</div>
+
+<script>
+const DATA = {"updated_at": "2026-11-27 20:26 HKT", "trade_date": "2026-11-26", "universe": {"total_fetched": 30, "liquid_count": 30, "breadth_ma50": 33.3, "breadth_ma200": 26.7}, "benchmark": {"symbol": "^HSI", "close": 22226.88, "pct_chg": 1.19, "long_bull": false, "short_bull": false}, "stage2": [], "gap_watch": [], "stage4b": [], "risk": [{"ticker": "9880.HK", "name": "优必选", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9880", "close": 59.35, "pct_chg": 10.73, "ma50": 69.06, "dist_ma50": -14.1, "vol_ratio": 2.08, "signal": "有效跌破50MA(离场)"}, {"ticker": "0941.HK", "name": "中国移动", "url": "https://www.tradingview.com/chart/?symbol=HKEX:941", "close": 77.75, "pct_chg": -1.08, "ma50": 79.52, "dist_ma50": -2.2, "vol_ratio": 1.99, "signal": "50MA反抽受阻(彻底清仓)"}, {"ticker": "3690.HK", "name": "美团-W", "url": "https://www.tradingview.com/chart/?symbol=HKEX:3690", "close": 67.85, "pct_chg": 8.21, "ma50": 71.77, "dist_ma50": -5.5, "vol_ratio": 1.82, "signal": "有效跌破50MA(离场)"}, {"ticker": "9999.HK", "name": "网易-S", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9999", "close": 167.6, "pct_chg": 3.84, "ma50": 185.34, "dist_ma50": -9.6, "vol_ratio": 1.59, "signal": "有效跌破50MA(离场)"}, {"ticker": "9988.HK", "name": "阿里巴巴-W", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9988", "close": 88.3, "pct_chg": 7.03, "ma50": 100.08, "dist_ma50": -11.8, "vol_ratio": 1.49, "signal": "有效跌破50MA(离场)"}, {"ticker": "0700.HK", "name": "腾讯控股", "url": "https://www.tradingview.com/chart/?symbol=HKEX:700", "close": 352.0, "pct_chg": 3.23, "ma50": 401.95, "dist_ma50": -12.4, "vol_ratio": 1.41, "signal": "有效跌破50MA(离场)"}, {"ticker": "9868.HK", "name": "小鹏汽车-W", "url": "https://www.tradingview.com/chart/?symbol=HKEX:9868", "close": 36.62, "pct_chg": 5.05, "ma50": 37.77, "dist_ma50": -3.0, "vol_ratio": 1.33, "signal": "有效跌破50MA(离场)"}, {"ticker": "0388.HK", "name": "香港交易所", "url": "https://www.tradingview.com/chart/?symbol=HKEX:388", "close": 363.4, "pct_chg": 3.41, "ma50": 376.4, "dist_ma50": -3.5, "vol_ratio": 1.28, "signal": "有效跌破50MA(离场)"}, {"ticker": "0857.HK", "name": "中国石油股份", "url": "https://www.tradingview.com/chart/?symbol=HKEX:857", "close": 9.7, "pct_chg": -0.72, "ma50": 9.96, "dist_ma50": -2.5, "vol_ratio": 1.1, "signal": "50MA反抽受阻(彻底清仓)"}, {"ticker": "0883.HK", "name": "中国海洋石油", "url": "https://www.tradingview.com/chart/?symbol=HKEX:883", "close": 21.42, "pct_chg": 0.47, "ma50": 23.33, "dist_ma50": -8.2, "vol_ratio": 0.87, "signal": "有效跌破50MA(离场)"}]};
+
+const TABS = [
+  { key: "stage2", label: "Stage 2 突破", cols: [
+    ["ticker", "代码 (TV图表)"], ["name", "名称"], ["close", "收盘价"], ["pct_chg", "涨跌幅%"],
+    ["type", "突破类型"], ["vol_ratio", "量比(50MA)"], ["dist_ma50", "距50MA%"],
+    ["mrs", "MRS强度"], ["stoch_k", "StochK"], ["turnover_m", "20日均额(M)"], ["room", "上方空间"]
+  ]},
+  { key: "gap_watch", label: "缺口回调观察", cols: [
+    ["ticker", "代码 (TV图表)"], ["name", "名称"], ["close", "收盘价"], ["pct_chg", "涨跌幅%"],
+    ["gap_date", "跳空日期"], ["gap_pct", "跳空幅度%"], ["gap_zone", "未补缺口区间"],
+    ["mrs", "MRS强度"], ["turnover_m", "20日均额(M)"], ["status", "追踪状态"]
+  ]},
+  { key: "stage4b", label: "4B- 底部反转", cols: [
+    ["ticker", "代码 (TV图表)"], ["name", "名称"], ["close", "收盘价"], ["pct_chg", "涨跌幅%"],
+    ["room_200", "距200MA空间%"], ["dd_52w", "52周回撤%"], ["vol_ratio", "量比(50MA)"],
+    ["stop_ref", "参考止损"], ["target_ref", "近200MA目标"], ["turnover_m", "20日均额(M)"]
+  ]},
+  { key: "risk", label: "50MA 风控 / 止盈", cols: [
+    ["ticker", "代码 (TV图表)"], ["name", "名称"], ["close", "收盘价"], ["pct_chg", "涨跌幅%"],
+    ["ma50", "50日均线"], ["dist_ma50", "距50MA%"], ["vol_ratio", "量比(50MA)"], ["signal", "风控信号"]
+  ]}
+];
+
+let activeKey = "stage2";
+
+function fmtPct(v) {
+  const cls = v > 0 ? "up" : (v < 0 ? "down" : "");
+  const sign = v > 0 ? "+" : "";
+  return `<span class="${cls}">${sign}${v}%</span>`;
+}
+
+function renderHeader() {
+  const b = DATA.benchmark, u = DATA.universe;
+  document.getElementById("metaInfo").innerText =
+    `行情日期：${DATA.trade_date} ｜ 更新时间：${DATA.updated_at} ｜ 有效流动标的：${u.liquid_count} / ${u.total_fetched}`;
+
+  const longTag = b.long_bull ? `<span class="badge badge-up">长牛 (200MA上行)</span>` : `<span class="badge badge-down">防守 (200MA偏弱)</span>`;
+  const shortTag = b.short_bull ? `<span class="badge badge-up">短多 (站上50MA)</span>` : `<span class="badge badge-warn">短线回调 (破50MA)</span>`;
+
+  document.getElementById("kpiGrid").innerHTML = `
+    <div class="card">
+      <div class="card-label">恒生指数 (${b.symbol})</div>
+      <div class="card-val">${b.close} <span style="font-size:0.95rem">${fmtPct(b.pct_chg)}</span></div>
+      <div class="card-sub">${longTag} ${shortTag}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">港股通市场广度</div>
+      <div class="card-val ${u.breadth_ma50 >= 50 ? 'up' : 'down'}">${u.breadth_ma50}%</div>
+      <div class="card-sub">站上 50MA 占比 ｜ 站上 200MA：${u.breadth_ma200}%</div>
+    </div>
+    <div class="card">
+      <div class="card-label">多头机会命中</div>
+      <div class="card-val up">${DATA.stage2.length + DATA.gap_watch.length} 只</div>
+      <div class="card-sub">Stage 2 突破 ${DATA.stage2.length} ｜ 缺口观察 ${DATA.gap_watch.length}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">超跌博弈 / 风险预警</div>
+      <div class="card-val warn">${DATA.stage4b.length} / <span class="down">${DATA.risk.length}</span></div>
+      <div class="card-sub">4B- 反转 ${DATA.stage4b.length} ｜ 50MA/止盈警报 ${DATA.risk.length}</div>
+    </div>
+  `;
+}
+
+function renderTabs() {
+  document.getElementById("tabs").innerHTML = TABS.map(t => `
+    <button class="tab-btn ${t.key === activeKey ? 'active' : ''}" onclick="switchTab('${t.key}')">
+      ${t.label} (${DATA[t.key].length})
+    </button>
+  `).join("");
+}
+
+function switchTab(k) { activeKey = k; renderTabs(); renderTable(); }
+
+function renderTable() {
+  const tab = TABS.find(t => t.key === activeKey);
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const rows = DATA[activeKey].filter(r =>
+    !q || r.ticker.toLowerCase().includes(q) || (r.name && r.name.toLowerCase().includes(q))
+  );
+
+  const thead = `<thead><tr>${tab.cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead>`;
+  if (!rows.length) {
+    document.getElementById("dataTable").innerHTML = thead + `<tbody><tr><td colspan="${tab.cols.length}" class="empty">当日暂无符合条件的标的</td></tr></tbody>`;
+    return;
+  }
+
+  const tbody = rows.map(r => `<tr>${tab.cols.map(([k]) => {
+    const val = r[k];
+    if (k === "ticker") return `<td><a class="ticker-link" href="${r.url}" target="_blank" rel="noopener">${val}</a></td>`;
+    if (k === "pct_chg" || k === "dist_ma50") return `<td>${fmtPct(val)}</td>`;
+    if (k === "mrs") return `<td class="${val >= 0 ? 'up' : 'down'}">${val}</td>`;
+    if (k === "type" || k === "status") return `<td><span class="badge badge-up">${val}</span></td>`;
+    if (k === "signal") return `<td><span class="badge ${val.includes('清仓') || val.includes('离场') ? 'badge-down' : 'badge-warn'}">${val}</span></td>`;
+    return `<td>${val}</td>`;
+  }).join("")}</tr>`).join("");
+
+  document.getElementById("dataTable").innerHTML = thead + `<tbody>${tbody}</tbody>`;
+}
+
+document.getElementById("searchInput").addEventListener("input", renderTable);
+renderHeader(); renderTabs(); renderTable();
+</script>
+</body>
+</html>
