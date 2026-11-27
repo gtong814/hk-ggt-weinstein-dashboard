@@ -1,5 +1,8 @@
+import io
 import json
+import math
 import os
+import re
 import time
 import warnings
 from datetime import datetime
@@ -7,25 +10,30 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
+import requests
 import yfinance as yf
+from bs4 import BeautifulSoup
 
 warnings.filterwarnings("ignore")
 
 # ==========================================
 # 1. 参数配置区
 # ==========================================
-BENCHMARK = "^HSI"                 # 基准指数：恒生指数
+# 使用盈富基金(2800.HK)作为恒指代理，收盘数据更新比 ^HSI 更准时
+BENCHMARK = "2800.HK"
+BENCHMARK_LABEL = "盈富基金 / 恒指代理"
+
 MIN_AVG_TURNOVER = 30_000_000      # 20日日均成交额下限（3,000 万港元）
-CHUNK_SIZE = 80                    # 分批下载大小，避免触发 Yahoo Finance 限流
+CHUNK_SIZE = 80                    # 每批下载 80 只，防止触发 Yahoo 限流
 DOCS_DIR = "docs"
 CACHE_CSV = os.path.join(DOCS_DIR, "ggt_tickers.csv")
 
 PARAMS = {
-    "box_window": 50,              # Stage 2 箱体突破天数
+    "box_window": 50,              # Stage 2 水平箱体突破天数
     "vol_mult_breakout": 1.5,      # 突破量比阈值（相对 50 日均量）
     "dist_ma50_max": 0.15,         # 防追高：距 50 日线最大乖离率（15%）
     "gap_min": 0.02,               # 有效跳空最小幅度（2%）
-    "gap_max_buy": 0.08,           # 首日可追跳空上限（8%）
+    "gap_max_buy": 0.08,           # 首日可追跳空上限（超过 8% 自动进回调观察）
     "gap_vol_mult": 1.8,           # 放量跳空量比阈值
     "gap_lookback_min": 3,         # 缺口不补回溯最小天数
     "gap_lookback_max": 15,        # 缺口不补回溯最大天数
@@ -34,7 +42,14 @@ PARAMS = {
     "trim_dist_ma50": 0.25,        # 过度延伸分批止盈阈值（25%）
 }
 
-# 内置兜底核心港股通名单（当接口与缓存均不可用时启用）
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/128.0.0.0 Safari/537.36"
+    )
+}
+
 FALLBACK_GGT = {
     "0700.HK": "腾讯控股", "9988.HK": "阿里巴巴-W", "3690.HK": "美团-W",
     "1810.HK": "小米集团-W", "1211.HK": "比亚迪股份", "0981.HK": "中芯国际",
@@ -50,52 +65,161 @@ FALLBACK_GGT = {
 
 
 # ==========================================
-# 2. 获取港股通成分股列表（自动转 yfinance 4位代码）
+# 2. 全量港股通名单获取（四重容错机制）
 # ==========================================
-def to_yf_hk_ticker(raw_code: str) -> str:
-    """将 5 位港股代码（如 00700）转为 yfinance 4 位格式（0700.HK）"""
+def is_hk_etf_or_rmb_counter(code_num: int, name: str = "") -> bool:
+    """按港交所官方号段剔除 ETF、美元柜台与人民币双柜台代码，保留普通股票"""
+    if code_num >= 80000:
+        return True
+    if (
+        (2800 <= code_num <= 2849)
+        or (3000 <= code_num <= 3199)
+        or (3400 <= code_num <= 3499)
+        or (9000 <= code_num <= 9199)
+        or (9400 <= code_num <= 9499)
+    ):
+        return True
+    upper_name = name.upper()
+    if "ETF" in upper_name or "盈富基金" in name:
+        return True
+    return False
+
+
+def to_yf_hk_ticker(raw_code: str) -> tuple[str, int] | tuple[None, None]:
     digits = "".join(ch for ch in str(raw_code) if ch.isdigit())
+    if not digits:
+        return None, None
     num = int(digits)
-    return f"{num:04d}.HK" if num < 10000 else f"{num}.HK"
+    if num <= 0:
+        return None, None
+    ticker = f"{num:04d}.HK" if num < 10000 else f"{num}.HK"
+    return ticker, num
 
 
-def get_ggt_stock_map() -> dict[str, str]:
-    """优先用 akshare 拉取最新港股通成分股，失败则读取缓存 CSV 或兜底名单"""
+def fetch_from_hkexnews() -> dict[str, str]:
+    """源 1：港交所披露易官方港股通南向持股总表（海外服务器访问最稳定）"""
+    url = "https://www3.hkexnews.hk/sdw/search/mutualmarket_c.aspx?t=hk"
+    resp = requests.get(url, headers=HEADERS, timeout=25)
+    resp.raise_for_status()
+    resp.encoding = "utf-8"
+
+    soup = BeautifulSoup(resp.text, "lxml")
+    rows = soup.select("table#mutualmarket-result tbody tr")
+    if not rows:
+        rows = soup.select("tbody tr")
+
+    stock_map = {}
+    for tr in rows:
+        code_td = tr.select_one("td.col-stock-code")
+        name_td = tr.select_one("td.col-stock-name")
+        if not code_td or not name_td:
+            continue
+
+        code_body = code_td.select_one(".mobile-list-body")
+        name_body = name_td.select_one(".mobile-list-body")
+        raw_code = (code_body or code_td).get_text(strip=True)
+        raw_name = (name_body or name_td).get_text(strip=True)
+        raw_name = re.sub(r"^(股份名稱|Stock Name)\s*[:：]?\s*", "", raw_name).strip()
+
+        yf_code, num = to_yf_hk_ticker(raw_code)
+        if not yf_code or is_hk_etf_or_rmb_counter(num, raw_name):
+            continue
+        stock_map[yf_code] = raw_name
+
+    return stock_map
+
+
+def fetch_from_szse_excel() -> dict[str, str]:
+    """源 2：深交所官方港股通标的证券名单 Excel"""
+    url = (
+        "https://www.szse.cn/api/report/ShowReport"
+        "?SHOWTYPE=xlsx&CATALOGID=SGT_GGTBDQD&TABKEY=tab1"
+    )
+    headers = {**HEADERS, "Referer": "https://www.szse.cn/szhk/hkbdsj/bdzq/index.html"}
+    resp = requests.get(url, headers=headers, timeout=20)
+    resp.raise_for_status()
+
+    df = pd.read_excel(io.BytesIO(resp.content), dtype=str)
+    code_col = next((c for c in df.columns if "代码" in str(c)), df.columns[0])
+    name_col = next(
+        (c for c in df.columns if "简称" in str(c) and "英" not in str(c)),
+        df.columns[1],
+    )
+
+    stock_map = {}
+    for _, row in df.iterrows():
+        raw_name = str(row.get(name_col, "")).strip()
+        yf_code, num = to_yf_hk_ticker(row.get(code_col, ""))
+        if not yf_code or is_hk_etf_or_rmb_counter(num, raw_name):
+            continue
+        stock_map[yf_code] = raw_name
+
+    return stock_map
+
+
+def fetch_from_akshare() -> dict[str, str]:
+    """源 3：东方财富港股通成分股（akshare）"""
+    import akshare as ak
+
+    df_ggt = ak.stock_hk_ggt_components_em()
+    code_col = "代码" if "代码" in df_ggt.columns else df_ggt.columns[1]
+    name_col = "名称" if "名称" in df_ggt.columns else df_ggt.columns[2]
+
+    stock_map = {}
+    for _, row in df_ggt.iterrows():
+        raw_name = str(row[name_col]).strip()
+        yf_code, num = to_yf_hk_ticker(row[code_col])
+        if not yf_code or is_hk_etf_or_rmb_counter(num, raw_name):
+            continue
+        stock_map[yf_code] = raw_name
+
+    return stock_map
+
+
+def get_ggt_stock_map() -> tuple[dict[str, str], str]:
+    """依次尝试港交所 -> 深交所 -> akshare -> 本地缓存 -> 兜底名单"""
     os.makedirs(DOCS_DIR, exist_ok=True)
-    try:
-        import akshare as ak
-        df_ggt = ak.stock_hk_ggt_components_em()
-        code_col = "代码" if "代码" in df_ggt.columns else df_ggt.columns[1]
-        name_col = "名称" if "名称" in df_ggt.columns else df_ggt.columns[2]
+    sources = [
+        ("港交所披露易官方", fetch_from_hkexnews),
+        ("深交所官方名单", fetch_from_szse_excel),
+        ("东方财富(akshare)", fetch_from_akshare),
+    ]
 
-        stock_map = {}
-        for _, row in df_ggt.iterrows():
-            yf_code = to_yf_hk_ticker(row[code_col])
-            stock_map[yf_code] = str(row[name_col]).strip()
-
-        if len(stock_map) >= 100:
-            pd.DataFrame(
-                [{"ticker": k, "name": v} for k, v in stock_map.items()]
-            ).to_csv(CACHE_CSV, index=False, encoding="utf-8-sig")
-            print(f"[名单] akshare 获取成功，共 {len(stock_map)} 只港股通标的。")
-            return stock_map
-    except Exception as e:
-        print(f"[警告] akshare 拉取港股通名单失败，尝试本地缓存: {e}")
+    for source_name, fetcher in sources:
+        try:
+            stock_map = fetcher()
+            if len(stock_map) >= 200:
+                pd.DataFrame(
+                    [{"ticker": k, "name": v} for k, v in sorted(stock_map.items())]
+                ).to_csv(CACHE_CSV, index=False, encoding="utf-8-sig")
+                print(f"[名单] {source_name}获取成功，共 {len(stock_map)} 只港股通股票。")
+                return stock_map, source_name
+            print(f"[警告] {source_name}返回数量偏少（{len(stock_map)} 只），尝试下一数据源...")
+        except Exception as e:
+            print(f"[警告] {source_name}获取失败: {e}")
 
     if os.path.exists(CACHE_CSV):
         cached = pd.read_csv(CACHE_CSV)
-        if not cached.empty:
+        if len(cached) >= 100:
             stock_map = dict(zip(cached["ticker"], cached["name"]))
-            print(f"[名单] 已加载本地缓存，共 {len(stock_map)} 只港股通标的。")
-            return stock_map
+            print(f"[名单] 已加载本地缓存 CSV，共 {len(stock_map)} 只港股通股票。")
+            return stock_map, "本地缓存(港股通)"
 
-    print(f"[名单] 使用内置兜底名单，共 {len(FALLBACK_GGT)} 只核心标的。")
-    return FALLBACK_GGT.copy()
+    print(f"[名单] 全部远端源不可用，使用内置核心兜底名单（{len(FALLBACK_GGT)} 只）。")
+    return FALLBACK_GGT.copy(), "内置核心兜底"
 
 
 # ==========================================
-# 3. 批量下载与技术指标计算
+# 3. 批量行情下载与技术指标计算
 # ==========================================
+def safe_num(val, digits: int = 2) -> float:
+    try:
+        f = float(val)
+        return 0.0 if (math.isnan(f) or math.isinf(f)) else round(f, digits)
+    except Exception:
+        return 0.0
+
+
 def extract_ohlcv(raw_df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     if raw_df is None or raw_df.empty:
         return pd.DataFrame()
@@ -113,13 +237,17 @@ def extract_ohlcv(raw_df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     if not all(c in df.columns for c in cols):
         return pd.DataFrame()
     df = df[cols].dropna(subset=["Close", "Volume"])
-    return df[df["Volume"] > 0]
+    df = df[df["Volume"] > 0]
+    df.index = pd.to_datetime(df.index).tz_localize(None)
+    return df[~df.index.duplicated(keep="last")].sort_index()
 
 
 def download_in_chunks(tickers: list[str], chunk_size: int = 80) -> dict[str, pd.DataFrame]:
     result = {}
-    for i in range(0, len(tickers), chunk_size):
+    total_batches = (len(tickers) + chunk_size - 1) // chunk_size
+    for idx, i in enumerate(range(0, len(tickers), chunk_size), 1):
         batch = tickers[i : i + chunk_size]
+        print(f"[行情] 正在下载第 {idx}/{total_batches} 批（{len(batch)} 只）...")
         try:
             raw = yf.download(
                 batch,
@@ -135,7 +263,7 @@ def download_in_chunks(tickers: list[str], chunk_size: int = 80) -> dict[str, pd
                 if len(df) >= 260:
                     result[t] = df
         except Exception as e:
-            print(f"[警告] 批次 {i}-{i + len(batch)} 下载异常: {e}")
+            print(f"[警告] 第 {idx} 批下载异常: {e}")
         time.sleep(0.8)
     return result
 
@@ -178,8 +306,10 @@ def check_gap_pullback(df: pd.DataFrame, p: dict):
     for offset in range(p["gap_lookback_min"], max_lb + 1):
         idx = len(df) - 1 - offset
         bar_g, bar_prev = df.iloc[idx], df.iloc[idx - 1]
-        gap_pct = (bar_g["Open"] - bar_prev["Close"]) / bar_prev["Close"]
+        if pd.isna(bar_g["Vol_MA50"]) or bar_g["Vol_MA50"] <= 0:
+            continue
 
+        gap_pct = (bar_g["Open"] - bar_prev["Close"]) / bar_prev["Close"]
         if (
             bar_g["Low"] > bar_prev["High"]
             and bar_g["Volume"] >= p["gap_vol_mult"] * bar_g["Vol_MA50"]
@@ -194,10 +324,14 @@ def check_gap_pullback(df: pd.DataFrame, p: dict):
             if latest["Close"] >= gap_bottom and dist_to_top <= 0.06:
                 vol_shrink = latest["Volume"] < latest["Vol_MA50"]
                 rebound = latest["Close"] > latest["Open"] and latest["Close"] > prev["High"]
-                status = "缺口上方企稳转强" if rebound else ("缩量回踩观察" if vol_shrink else "缺口上方震荡消化")
+                status = (
+                    "缺口上方企稳转强"
+                    if rebound
+                    else ("缩量回踩观察" if vol_shrink else "缺口上方震荡消化")
+                )
                 return {
                     "gap_date": df.index[idx].strftime("%Y-%m-%d"),
-                    "gap_pct": round(gap_pct * 100, 2),
+                    "gap_pct": safe_num(gap_pct * 100, 2),
                     "gap_zone": f"{gap_bottom:.2f} - {gap_top:.2f}",
                     "status": status,
                 }
@@ -210,17 +344,16 @@ def tv_url(yf_ticker: str) -> str:
 
 
 # ==========================================
-# 4. 运行扫描并生成 JSON 数据包
+# 4. 执行全量扫描
 # ==========================================
 def run_scan() -> dict:
-    stock_map = get_ggt_stock_map()
+    stock_map, source_name = get_ggt_stock_map()
     tickers = list(stock_map.keys())
 
-    # 下载恒生指数作为基准
     bench_raw = yf.download(BENCHMARK, period="2y", interval="1d", auto_adjust=True, progress=False)
     bench_df = extract_ohlcv(bench_raw, BENCHMARK)
     if len(bench_df) < 220:
-        raise RuntimeError("恒生指数基准数据下载失败。")
+        raise RuntimeError(f"基准标的 {BENCHMARK} 数据下载失败。")
 
     bench_df["MA50"] = bench_df["Close"].rolling(50).mean()
     bench_df["MA200"] = bench_df["Close"].rolling(200).mean()
@@ -228,20 +361,27 @@ def run_scan() -> dict:
     b_now = bench_df.iloc[-1]
     b_ma200_up = bool(b_now["MA200"] >= bench_df["MA200"].iloc[-21])
 
-    print(f"[行情] 开始分批下载 {len(tickers)} 只港股通日线数据...")
+    print(f"[行情] 开始全量扫描 {len(tickers)} 只港股通标的...")
     data_map = download_in_chunks(tickers, CHUNK_SIZE)
-    print(f"[行情] 有效数据标的：{len(data_map)} 只。")
+    print(f"[行情] 成功获取有效历史数据：{len(data_map)} 只。")
 
     stage2_list, gap_watch_list, stage4b_list, risk_list = [], [], [], []
     liquid_count, above_ma50_count, above_ma200_count = 0, 0, 0
+    latest_dates = []
     p = PARAMS
 
     for ticker, raw_df in data_map.items():
         df = add_indicators(raw_df, bench_df["Close"])
         latest, prev = df.iloc[-1], df.iloc[-2]
-        if pd.isna(latest["MRS"]) or latest["Avg_Turnover_20"] < MIN_AVG_TURNOVER:
+        if (
+            pd.isna(latest["MRS"])
+            or pd.isna(latest["Vol_MA50"])
+            or latest["Vol_MA50"] <= 0
+            or latest["Avg_Turnover_20"] < MIN_AVG_TURNOVER
+        ):
             continue
 
+        latest_dates.append(df.index[-1])
         liquid_count += 1
         if latest["Close"] > latest["MA50"]:
             above_ma50_count += 1
@@ -252,7 +392,8 @@ def run_scan() -> dict:
         vol_ratio = float(latest["Volume"] / latest["Vol_MA50"])
         gap_pct = float((latest["Open"] - prev["Close"]) / prev["Close"])
         is_gap_up = (latest["Low"] > prev["High"]) and (gap_pct >= p["gap_min"])
-        turnover_m = round(float(latest["Avg_Turnover_20"]) / 1e6, 1)
+        turnover_m = safe_num(latest["Avg_Turnover_20"] / 1e6, 1)
+        bar_range = max(float(latest["High"] - latest["Low"]), 1e-6)
 
         # --- 1. Stage 2 突破 ---
         ma150_rising = latest["MA150"] >= df["MA150"].iloc[-21]
@@ -269,29 +410,37 @@ def run_scan() -> dict:
             and vol_ratio >= p["vol_mult_breakout"]
             and latest["Dist_MA50"] <= p["dist_ma50_max"]
         )
-        bar_range = max(float(latest["High"] - latest["Low"]), 1e-6)
         cond_gap_buy = (
             is_gap_up
             and p["gap_min"] <= gap_pct <= p["gap_max_buy"]
             and vol_ratio >= p["gap_vol_mult"]
             and (latest["Close"] - latest["Low"]) / bar_range >= 0.5
         )
-        cond_gap_ext = cond_s2_trend and is_gap_up and gap_pct > p["gap_max_buy"] and vol_ratio >= p["gap_vol_mult"]
+        cond_gap_ext = (
+            cond_s2_trend
+            and is_gap_up
+            and gap_pct > p["gap_max_buy"]
+            and vol_ratio >= p["gap_vol_mult"]
+        )
 
         if cond_s2_trend and (cond_box or cond_gap_buy):
             stage2_list.append({
                 "ticker": ticker,
                 "name": name,
                 "url": tv_url(ticker),
-                "close": round(float(latest["Close"]), 2),
-                "pct_chg": round(float(latest["Pct_Chg"]), 2),
+                "close": safe_num(latest["Close"], 2),
+                "pct_chg": safe_num(latest["Pct_Chg"], 2),
                 "type": "温和跳空突破" if cond_gap_buy else "放量箱体突破",
-                "vol_ratio": round(vol_ratio, 2),
-                "dist_ma50": round(float(latest["Dist_MA50"]) * 100, 1),
-                "mrs": round(float(latest["MRS"]), 1),
-                "stoch_k": round(float(latest["Stoch_K"]), 1),
+                "vol_ratio": safe_num(vol_ratio, 2),
+                "dist_ma50": safe_num(latest["Dist_MA50"] * 100, 1),
+                "mrs": safe_num(latest["MRS"], 1),
+                "stoch_k": safe_num(latest["Stoch_K"], 1),
                 "turnover_m": turnover_m,
-                "room": "创/近52周新高" if latest["Dist_52W_High"] <= 0.03 else f"距前高 {latest['Dist_52W_High']*100:.1f}%",
+                "room": (
+                    "创/近52周新高"
+                    if latest["Dist_52W_High"] <= 0.03
+                    else f"距前高 {latest['Dist_52W_High']*100:.1f}%"
+                ),
             })
 
         # --- 2. 缺口回调观察 ---
@@ -300,12 +449,12 @@ def run_scan() -> dict:
                 "ticker": ticker,
                 "name": name,
                 "url": tv_url(ticker),
-                "close": round(float(latest["Close"]), 2),
-                "pct_chg": round(float(latest["Pct_Chg"]), 2),
+                "close": safe_num(latest["Close"], 2),
+                "pct_chg": safe_num(latest["Pct_Chg"], 2),
                 "gap_date": df.index[-1].strftime("%Y-%m-%d"),
-                "gap_pct": round(gap_pct * 100, 2),
+                "gap_pct": safe_num(gap_pct * 100, 2),
                 "gap_zone": f"{prev['High']:.2f} - {latest['Low']:.2f}",
-                "mrs": round(float(latest["MRS"]), 1),
+                "mrs": safe_num(latest["MRS"], 1),
                 "turnover_m": turnover_m,
                 "status": "今日巨幅跳空(勿追高,等回踩)",
             })
@@ -316,12 +465,12 @@ def run_scan() -> dict:
                     "ticker": ticker,
                     "name": name,
                     "url": tv_url(ticker),
-                    "close": round(float(latest["Close"]), 2),
-                    "pct_chg": round(float(latest["Pct_Chg"]), 2),
+                    "close": safe_num(latest["Close"], 2),
+                    "pct_chg": safe_num(latest["Pct_Chg"], 2),
                     "gap_date": g_info["gap_date"],
                     "gap_pct": g_info["gap_pct"],
                     "gap_zone": g_info["gap_zone"],
-                    "mrs": round(float(latest["MRS"]), 1),
+                    "mrs": safe_num(latest["MRS"], 1),
                     "turnover_m": turnover_m,
                     "status": g_info["status"],
                 })
@@ -332,7 +481,7 @@ def run_scan() -> dict:
         low_20, low_120 = df["Low"].iloc[-20:].min(), df["Low"].iloc[-120:].min()
         high_20 = df["High"].iloc[-20:].max()
         base_high_20 = df["Close"].iloc[-21:-1].max()
-        base_amp = (high_20 - low_20) / low_20
+        base_amp = (high_20 - low_20) / max(low_20, 1e-6)
 
         if (
             latest["Close"] < latest["MA200"]
@@ -349,17 +498,17 @@ def run_scan() -> dict:
                 "ticker": ticker,
                 "name": name,
                 "url": tv_url(ticker),
-                "close": round(float(latest["Close"]), 2),
-                "pct_chg": round(float(latest["Pct_Chg"]), 2),
-                "room_200": round(float(room_200) * 100, 1),
-                "dd_52w": round(float(dd_52w) * 100, 1),
-                "vol_ratio": round(vol_ratio, 2),
-                "stop_ref": round(stop_ref, 2),
-                "target_ref": round(float(latest["MA200"]) * 0.96, 2),
+                "close": safe_num(latest["Close"], 2),
+                "pct_chg": safe_num(latest["Pct_Chg"], 2),
+                "room_200": safe_num(room_200 * 100, 1),
+                "dd_52w": safe_num(dd_52w * 100, 1),
+                "vol_ratio": safe_num(vol_ratio, 2),
+                "stop_ref": safe_num(stop_ref, 2),
+                "target_ref": safe_num(latest["MA200"] * 0.96, 2),
                 "turnover_m": turnover_m,
             })
 
-        # --- 4. 现代版风控警报（止盈 / 50日线离场） ---
+        # --- 4. 现代版风控警报（仅聚焦最新触发的止盈 / 刚破 50MA 信号） ---
         alerts = []
         is_key_rev = (
             latest["High"] >= df["High"].iloc[-20:].max()
@@ -371,9 +520,15 @@ def run_scan() -> dict:
             reason = "关键反转日" if is_key_rev else f"乖离率过高({latest['Dist_MA50']*100:.1f}%)"
             alerts.append(f"分批止盈({reason})")
 
+        # 仅监控近 5 日内仍站上 50MA 的标的刚破位动作，避免全量扫描刷屏老弱股
+        recently_above_50 = (df["Close"].iloc[-6:-1] > df["MA50"].iloc[-6:-1]).any()
         ma50_falling = latest["MA50"] < df["MA50"].iloc[-6]
         gap_down_vol = (latest["High"] < prev["Low"]) and (vol_ratio >= 1.5)
-        two_below = (latest["Close"] < latest["MA50"]) and (prev["Close"] < prev["MA50"])
+        two_below = (
+            (latest["Close"] < latest["MA50"])
+            and (prev["Close"] < prev["MA50"])
+            and (df["Close"].iloc[-3] >= df["MA50"].iloc[-3])
+        )
         failed_rally = (
             latest["Close"] < latest["MA50"]
             and latest["Close"] < latest["Open"]
@@ -381,51 +536,56 @@ def run_scan() -> dict:
             and prev["Close"] < prev["MA50"]
         )
 
-        # 仅对前期处于上升或刚破位（20日内曾站上50日线）的标的发出离场预警，避免满屏老弱股
-        was_above_50 = (df["Close"].iloc[-20:-1] > df["MA50"].iloc[-20:-1]).any()
-        if was_above_50:
+        if recently_above_50:
             if failed_rally:
                 alerts.append("50MA反抽受阻(彻底清仓)")
             elif latest["Close"] < latest["MA50"] and gap_down_vol:
                 alerts.append("放量跳空跌破50MA(清仓)")
-            elif two_below or (latest["Close"] < latest["MA50"] and ma50_falling):
-                alerts.append("有效跌破50MA(离场)")
+            elif two_below or (latest["Close"] < latest["MA50"] and ma50_falling and prev["Close"] >= prev["MA50"]):
+                alerts.append("刚有效跌破50MA(离场)")
 
         if alerts:
             risk_list.append({
                 "ticker": ticker,
                 "name": name,
                 "url": tv_url(ticker),
-                "close": round(float(latest["Close"]), 2),
-                "pct_chg": round(float(latest["Pct_Chg"]), 2),
-                "ma50": round(float(latest["MA50"]), 2),
-                "dist_ma50": round(float(latest["Dist_MA50"]) * 100, 1),
-                "vol_ratio": round(vol_ratio, 2),
+                "close": safe_num(latest["Close"], 2),
+                "pct_chg": safe_num(latest["Pct_Chg"], 2),
+                "ma50": safe_num(latest["MA50"], 2),
+                "dist_ma50": safe_num(latest["Dist_MA50"] * 100, 1),
+                "vol_ratio": safe_num(vol_ratio, 2),
+                "turnover_m": turnover_m,
                 "signal": " | ".join(alerts),
             })
 
-    # 按相对强度或空间降序排序
     stage2_list.sort(key=lambda x: x["mrs"], reverse=True)
     gap_watch_list.sort(key=lambda x: x["mrs"], reverse=True)
     stage4b_list.sort(key=lambda x: x["room_200"], reverse=True)
     risk_list.sort(key=lambda x: x["vol_ratio"], reverse=True)
 
     hk_now = datetime.now(ZoneInfo("Asia/Hong_Kong")).strftime("%Y-%m-%d %H:%M HKT")
-    trade_date = bench_df.index[-1].strftime("%Y-%m-%d")
+    trade_date = (
+        max(latest_dates).strftime("%Y-%m-%d")
+        if latest_dates
+        else bench_df.index[-1].strftime("%Y-%m-%d")
+    )
 
     return {
         "updated_at": hk_now,
         "trade_date": trade_date,
+        "source_name": source_name,
         "universe": {
+            "total_listed": len(tickers),
             "total_fetched": len(data_map),
             "liquid_count": liquid_count,
-            "breadth_ma50": round(above_ma50_count / max(liquid_count, 1) * 100, 1),
-            "breadth_ma200": round(above_ma200_count / max(liquid_count, 1) * 100, 1),
+            "breadth_ma50": safe_num(above_ma50_count / max(liquid_count, 1) * 100, 1),
+            "breadth_ma200": safe_num(above_ma200_count / max(liquid_count, 1) * 100, 1),
         },
         "benchmark": {
             "symbol": BENCHMARK,
-            "close": round(float(b_now["Close"]), 2),
-            "pct_chg": round(float(b_now["Pct_Chg"]), 2),
+            "label": BENCHMARK_LABEL,
+            "close": safe_num(b_now["Close"], 2),
+            "pct_chg": safe_num(b_now["Pct_Chg"], 2),
             "long_bull": bool(b_now["Close"] > b_now["MA200"] and b_ma200_up),
             "short_bull": bool(b_now["Close"] > b_now["MA50"]),
         },
@@ -437,14 +597,14 @@ def run_scan() -> dict:
 
 
 # ==========================================
-# 5. 生成绿涨红跌交互式 HTML 看板
+# 5. 生成绿涨红跌交互式 HTML 看板（支持点击排序）
 # ==========================================
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>港股通 Stan Weinstein 现代版选股看板</title>
+  <title>全量港股通 Stan Weinstein 现代版选股看板</title>
   <style>
     :root {
       --bg: #0d1117; --card: #161b22; --border: #30363d;
@@ -453,10 +613,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang HK", sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
-    .container { max-width: 1320px; margin: 0 auto; }
+    .container { max-width: 1360px; margin: 0 auto; }
     header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
     h1 { margin: 0; font-size: 1.45rem; }
-    .meta { color: var(--muted); font-size: 0.88rem; }
+    .meta { color: var(--muted); font-size: 0.86rem; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
     .card-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; }
@@ -472,11 +632,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .tab-btn { background: var(--card); color: var(--muted); border: 1px solid var(--border); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: 0.15s; }
     .tab-btn:hover { color: var(--text); border-color: var(--accent); }
     .tab-btn.active { background: #1f2937; color: var(--text); border-color: var(--accent); }
-    .search { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; width: 240px; font-size: 0.9rem; }
+    .search { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; width: 250px; font-size: 0.9rem; }
     .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
     th, td { padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-    th { color: var(--muted); font-weight: 600; background: #121720; }
+    th { color: var(--muted); font-weight: 600; background: #121720; cursor: pointer; user-select: none; }
+    th:hover { color: var(--text); }
     tr:hover td { background: rgba(56,189,248,0.06); }
     a.ticker-link { color: var(--accent); text-decoration: none; font-weight: 700; }
     a.ticker-link:hover { text-decoration: underline; }
@@ -487,7 +648,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div class="container">
   <header>
-    <h1>港股通 Stan Weinstein 现代版选股看板</h1>
+    <h1>全量港股通 Stan Weinstein 现代版选股看板</h1>
     <div class="meta" id="metaInfo"></div>
   </header>
 
@@ -502,7 +663,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <table id="dataTable"></table>
   </div>
 
-  <footer>数据来源：Yahoo Finance & 东方财富港股通列表 ｜ 配色：绿涨红跌 ｜ 仅供技术面量化复盘参考，不构成投资建议</footer>
+  <footer>数据来源：港交所/深交所官方港股通名单 & Yahoo Finance ｜ 点击表头可排序 ｜ 配色：绿涨红跌 ｜ 仅供技术面量化复盘参考</footer>
 </div>
 
 <script>
@@ -526,11 +687,13 @@ const TABS = [
   ]},
   { key: "risk", label: "50MA 风控 / 止盈", cols: [
     ["ticker", "代码 (TV图表)"], ["name", "名称"], ["close", "收盘价"], ["pct_chg", "涨跌幅%"],
-    ["ma50", "50日均线"], ["dist_ma50", "距50MA%"], ["vol_ratio", "量比(50MA)"], ["signal", "风控信号"]
+    ["ma50", "50日均线"], ["dist_ma50", "距50MA%"], ["vol_ratio", "量比(50MA)"],
+    ["turnover_m", "20日均额(M)"], ["signal", "风控信号"]
   ]}
 ];
 
 let activeKey = "stage2";
+let sortState = { col: null, asc: false };
 
 function fmtPct(v) {
   const cls = v > 0 ? "up" : (v < 0 ? "down" : "");
@@ -541,19 +704,19 @@ function fmtPct(v) {
 function renderHeader() {
   const b = DATA.benchmark, u = DATA.universe;
   document.getElementById("metaInfo").innerText =
-    `行情日期：${DATA.trade_date} ｜ 更新时间：${DATA.updated_at} ｜ 有效流动标的：${u.liquid_count} / ${u.total_fetched}`;
+    `行情日期：${DATA.trade_date} ｜ 更新：${DATA.updated_at} ｜ 名单源：${DATA.source_name}（达标流动股 ${u.liquid_count} / 有效数据 ${u.total_fetched} / 总名单 ${u.total_listed}）`;
 
   const longTag = b.long_bull ? `<span class="badge badge-up">长牛 (200MA上行)</span>` : `<span class="badge badge-down">防守 (200MA偏弱)</span>`;
   const shortTag = b.short_bull ? `<span class="badge badge-up">短多 (站上50MA)</span>` : `<span class="badge badge-warn">短线回调 (破50MA)</span>`;
 
   document.getElementById("kpiGrid").innerHTML = `
     <div class="card">
-      <div class="card-label">恒生指数 (${b.symbol})</div>
+      <div class="card-label">${b.label} (${b.symbol})</div>
       <div class="card-val">${b.close} <span style="font-size:0.95rem">${fmtPct(b.pct_chg)}</span></div>
       <div class="card-sub">${longTag} ${shortTag}</div>
     </div>
     <div class="card">
-      <div class="card-label">港股通市场广度</div>
+      <div class="card-label">全量港股通市场广度</div>
       <div class="card-val ${u.breadth_ma50 >= 50 ? 'up' : 'down'}">${u.breadth_ma50}%</div>
       <div class="card-sub">站上 50MA 占比 ｜ 站上 200MA：${u.breadth_ma200}%</div>
     </div>
@@ -563,7 +726,7 @@ function renderHeader() {
       <div class="card-sub">Stage 2 突破 ${DATA.stage2.length} ｜ 缺口观察 ${DATA.gap_watch.length}</div>
     </div>
     <div class="card">
-      <div class="card-label">超跌博弈 / 风险预警</div>
+      <div class="card-label">超跌博弈 / 新鲜风控警报</div>
       <div class="card-val warn">${DATA.stage4b.length} / <span class="down">${DATA.risk.length}</span></div>
       <div class="card-sub">4B- 反转 ${DATA.stage4b.length} ｜ 50MA/止盈警报 ${DATA.risk.length}</div>
     </div>
@@ -578,18 +741,43 @@ function renderTabs() {
   `).join("");
 }
 
-function switchTab(k) { activeKey = k; renderTabs(); renderTable(); }
+function switchTab(k) {
+  activeKey = k;
+  sortState = { col: null, asc: false };
+  renderTabs();
+  renderTable();
+}
+
+function sortBy(col) {
+  if (sortState.col === col) sortState.asc = !sortState.asc;
+  else { sortState.col = col; sortState.asc = false; }
+  renderTable();
+}
 
 function renderTable() {
   const tab = TABS.find(t => t.key === activeKey);
   const q = document.getElementById("searchInput").value.trim().toLowerCase();
-  const rows = DATA[activeKey].filter(r =>
+  let rows = DATA[activeKey].filter(r =>
     !q || r.ticker.toLowerCase().includes(q) || (r.name && r.name.toLowerCase().includes(q))
   );
 
-  const thead = `<thead><tr>${tab.cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead>`;
+  if (sortState.col) {
+    const col = sortState.col, dir = sortState.asc ? 1 : -1;
+    rows = [...rows].sort((a, b) => {
+      const va = a[col], vb = b[col];
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+      return String(va).localeCompare(String(vb), "zh-HK") * dir;
+    });
+  }
+
+  const thead = `<thead><tr>${tab.cols.map(([k, label]) => {
+    const arrow = sortState.col === k ? (sortState.asc ? " ▲" : " ▼") : "";
+    return `<th onclick="sortBy('${k}')">${label}${arrow}</th>`;
+  }).join("")}</tr></thead>`;
+
   if (!rows.length) {
-    document.getElementById("dataTable").innerHTML = thead + `<tbody><tr><td colspan="${tab.cols.length}" class="empty">当日暂无符合条件的标的</td></tr></tbody>`;
+    document.getElementById("dataTable").innerHTML =
+      thead + `<tbody><tr><td colspan="${tab.cols.length}" class="empty">当日暂无符合条件的标的</td></tr></tbody>`;
     return;
   }
 
